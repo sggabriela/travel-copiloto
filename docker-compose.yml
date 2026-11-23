@@ -1,0 +1,19 @@
+# Levanta el copiloto en http://localhost:3000 usando el Supabase en la nube.
+#   cp .env.example .env   (y completar los valores)
+#   docker compose up --build
+services:
+  app:
+    build:
+      context: .
+      args:
+        # Públicas: se incrustan en la compilación
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
+    image: travel-copiloto
+    ports:
+      - "3000:3000"
+    # Secretas (como la clave de Claude): se leen de .env solo al correr
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped

@@ -29,6 +29,20 @@ npm install
 npm run dev            # abre http://localhost:3000
 ```
 
+## Levantarla con Docker
+
+Necesitás Docker Desktop. La app corre en un contenedor y usa el Supabase en la nube.
+
+```bash
+cp .env.example .env        # completá los valores
+docker compose up --build   # abre http://localhost:3000
+docker compose down         # para apagarla
+```
+
+Las variables `NEXT_PUBLIC_` se incrustan al compilar la imagen (son públicas). La clave de Claude se lee de `.env` recién al arrancar el contenedor, así que no queda guardada dentro de la imagen.
+
+La versión publicada para usar y evaluar está en Vercel; Docker es para correrla en cualquier computadora.
+
 ## Datos y seguridad
 
 - Las claves van solo en `.env` (local) y en las variables de entorno de Vercel. Nunca en el código.
