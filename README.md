@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Copiloto del asesor · Travel Experience
 
-## Getting Started
+Herramienta interna para los asesores de Travel Experience, una agencia que diseña y vende experiencias de viaje en Argentina y países limítrofes.
 
-First, run the development server:
+## Qué hace
+
+1. El asesor pega una consulta de WhatsApp.
+2. En menos de un minuto ve la ficha del viajero y un itinerario sugerido, armado **solo** con servicios cargados en la base de proveedores.
+3. A medida que conversa con el cliente, escribe ajustes y la IA rehace el itinerario. Si se pide algo que no está en la base, la app avisa y lo registra como pedido sin cubrir.
+
+Proyecto del bloque B2 del programa AI-Centric Management (IAE, Universidad Austral).
+
+## Cómo está hecha
+
+| Pieza | Tecnología |
+|---|---|
+| App web | Next.js + TypeScript + Tailwind |
+| Datos y login | Supabase |
+| IA | Claude (API de Anthropic): Haiku 5.5 para la ficha, Opus 5.5 para el itinerario y los ajustes |
+| Publicación | Vercel |
+
+## Levantarla en tu computadora
+
+Necesitás Node.js 20 o superior.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env   # completá los valores
+npm install
+npm run dev            # abre http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Datos y seguridad
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Las claves van solo en `.env` (local) y en las variables de entorno de Vercel. Nunca en el código.
+- Los datos de clientes y proveedores de este repositorio son de ejemplo y están anonimizados.
