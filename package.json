@@ -9,7 +9,8 @@
     "lint": "eslint",
     "probar:base": "node --env-file=.env scripts/probar-base.mjs",
     "probar:login": "node --env-file=.env scripts/probar-login.mjs",
-    "probar:ficha": "tsx --env-file=.env scripts/probar-ficha.mts"
+    "probar:ficha": "tsx --env-file=.env scripts/probar-ficha.mts",
+    "probar:itinerario": "tsx --env-file=.env scripts/probar-itinerario.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",

@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import type { Ficha } from "@/lib/ia/ficha";
-import { generarFicha, guardarFicha } from "./acciones";
+import type { Itinerario } from "@/lib/ia/itinerario";
+import { generarFicha, generarItinerario, guardarFicha } from "./acciones";
+import { VistaItinerario } from "./itinerario";
 import { EJEMPLOS } from "./ejemplos";
 
 const campo =
@@ -17,6 +19,10 @@ export function Copiloto() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [generando, iniciarGeneracion] = useTransition();
   const [guardando, iniciarGuardado] = useTransition();
+  const [itinerario, setItinerario] = useState<Itinerario | null>(null);
+  const [infoItinerario, setInfoItinerario] = useState<{ version: number; ms: number } | null>(null);
+  const [errorItinerario, setErrorItinerario] = useState<string | null>(null);
+  const [armando, iniciarArmado] = useTransition();
 
   function generar() {
     setError(null);
@@ -30,6 +36,20 @@ export function Copiloto() {
       setConsultaId(r.consultaId);
       setFicha(r.ficha);
       setDemora(r.ms);
+    });
+  }
+
+  function armar() {
+    if (!ficha || !consultaId) return;
+    setErrorItinerario(null);
+    iniciarArmado(async () => {
+      const r = await generarItinerario(consultaId, ficha);
+      if (!r.ok) {
+        setErrorItinerario(r.error);
+        return;
+      }
+      setItinerario(r.itinerario);
+      setInfoItinerario({ version: r.version, ms: r.ms });
     });
   }
 
@@ -48,10 +68,14 @@ export function Copiloto() {
     setFicha(null);
     setDemora(null);
     setError(null);
+    setItinerario(null);
+    setInfoItinerario(null);
+    setErrorItinerario(null);
     setAviso(null);
   }
 
   return (
+    <div className="flex flex-col gap-5">
     <div className="flex flex-wrap items-start gap-5">
       <section className="flex min-w-0 flex-[1_1_320px] flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5">
         <div className="flex items-center justify-between gap-2">
@@ -115,9 +139,44 @@ export function Copiloto() {
             Cuando generes la ficha, acá vas a ver lo que entendió la IA. Podés corregir cualquier dato antes de seguir.
           </p>
         ) : (
-          <FichaEditable ficha={ficha} onChange={setFicha} onGuardar={guardar} guardando={guardando} aviso={aviso} />
+          <FichaEditable
+            ficha={ficha}
+            onChange={setFicha}
+            onGuardar={guardar}
+            guardando={guardando}
+            aviso={aviso}
+            onArmar={armar}
+            armando={armando}
+            hayItinerario={itinerario !== null}
+          />
         )}
       </section>
+    </div>
+
+      {(armando || itinerario || errorItinerario) && (
+        <section className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5" aria-live="polite">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-zinc-900">3 · Itinerario sugerido</h2>
+            {infoItinerario && !armando && (
+              <span className="text-xs text-zinc-500">
+                Versión {infoItinerario.version} · armada por IA en {(infoItinerario.ms / 1000).toFixed(1)} s
+              </span>
+            )}
+          </div>
+          {errorItinerario && (
+            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              {errorItinerario}
+            </p>
+          )}
+          {armando ? (
+            <p className="text-sm text-zinc-600">
+              Armando el itinerario con los servicios de la base… puede tardar hasta un minuto.
+            </p>
+          ) : (
+            itinerario && <VistaItinerario itinerario={itinerario} />
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -128,12 +187,18 @@ function FichaEditable({
   onGuardar,
   guardando,
   aviso,
+  onArmar,
+  armando,
+  hayItinerario,
 }: {
   ficha: Ficha;
   onChange: (f: Ficha) => void;
   onGuardar: () => void;
   guardando: boolean;
   aviso: string | null;
+  onArmar: () => void;
+  armando: boolean;
+  hayItinerario: boolean;
 }) {
   const set = <K extends keyof Ficha>(k: K, v: Ficha[K]) => onChange({ ...ficha, [k]: v });
   const texto = (v: string) => (v.trim() === "" ? null : v);
@@ -215,12 +280,20 @@ function FichaEditable({
         <button
           type="button"
           onClick={onGuardar}
-          disabled={guardando}
+          disabled={guardando || armando}
           className="min-h-10 rounded-lg border border-teal-700 px-4 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:opacity-50"
         >
           {guardando ? "Guardando…" : "Guardar cambios de la ficha"}
         </button>
       </div>
+      <button
+        type="button"
+        onClick={onArmar}
+        disabled={armando || guardando}
+        className="min-h-11 rounded-lg bg-teal-700 font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+      >
+        {armando ? "Armando el itinerario…" : hayItinerario ? "Rearmar itinerario con esta ficha" : "Armar itinerario"}
+      </button>
     </div>
   );
 }
