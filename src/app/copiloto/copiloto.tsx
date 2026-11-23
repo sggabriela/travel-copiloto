@@ -2,9 +2,15 @@
 
 import { useState, useTransition } from "react";
 import type { Ficha } from "@/lib/ia/ficha";
-import type { Itinerario } from "@/lib/ia/itinerario";
-import { generarFicha, generarItinerario, guardarFicha } from "./acciones";
-import { VistaItinerario } from "./itinerario";
+import {
+  ajustarItinerario,
+  generarFicha,
+  generarItinerario,
+  guardarFicha,
+  type ResultadoItinerario,
+  type VersionItinerario,
+} from "./acciones";
+import { PanelItinerario } from "./panel-itinerario";
 import { EJEMPLOS } from "./ejemplos";
 
 const campo =
@@ -19,8 +25,8 @@ export function Copiloto() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [generando, iniciarGeneracion] = useTransition();
   const [guardando, iniciarGuardado] = useTransition();
-  const [itinerario, setItinerario] = useState<Itinerario | null>(null);
-  const [infoItinerario, setInfoItinerario] = useState<{ version: number; ms: number } | null>(null);
+  const [versiones, setVersiones] = useState<VersionItinerario[]>([]);
+  const [seleccion, setSeleccion] = useState<number | null>(null);
   const [errorItinerario, setErrorItinerario] = useState<string | null>(null);
   const [armando, iniciarArmado] = useTransition();
 
@@ -39,17 +45,31 @@ export function Copiloto() {
     });
   }
 
+  function recibir(r: ResultadoItinerario): boolean {
+    if (!r.ok) {
+      setErrorItinerario(r.error);
+      return false;
+    }
+    setVersiones((vs) => [r.nueva, ...vs]);
+    setSeleccion(r.nueva.version);
+    return true;
+  }
+
   function armar() {
     if (!ficha || !consultaId) return;
     setErrorItinerario(null);
     iniciarArmado(async () => {
-      const r = await generarItinerario(consultaId, ficha);
-      if (!r.ok) {
-        setErrorItinerario(r.error);
-        return;
-      }
-      setItinerario(r.itinerario);
-      setInfoItinerario({ version: r.version, ms: r.ms });
+      recibir(await generarItinerario(consultaId, ficha));
+    });
+  }
+
+  function ajustar(texto: string): Promise<boolean> {
+    if (!consultaId) return Promise.resolve(false);
+    setErrorItinerario(null);
+    return new Promise((resolver) => {
+      iniciarArmado(async () => {
+        resolver(recibir(await ajustarItinerario(consultaId, texto)));
+      });
     });
   }
 
@@ -68,8 +88,8 @@ export function Copiloto() {
     setFicha(null);
     setDemora(null);
     setError(null);
-    setItinerario(null);
-    setInfoItinerario(null);
+    setVersiones([]);
+    setSeleccion(null);
     setErrorItinerario(null);
     setAviso(null);
   }
@@ -147,35 +167,21 @@ export function Copiloto() {
             aviso={aviso}
             onArmar={armar}
             armando={armando}
-            hayItinerario={itinerario !== null}
+            hayItinerario={versiones.length > 0}
           />
         )}
       </section>
     </div>
 
-      {(armando || itinerario || errorItinerario) && (
-        <section className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5" aria-live="polite">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-semibold text-zinc-900">3 · Itinerario sugerido</h2>
-            {infoItinerario && !armando && (
-              <span className="text-xs text-zinc-500">
-                Versión {infoItinerario.version} · armada por IA en {(infoItinerario.ms / 1000).toFixed(1)} s
-              </span>
-            )}
-          </div>
-          {errorItinerario && (
-            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
-              {errorItinerario}
-            </p>
-          )}
-          {armando ? (
-            <p className="text-sm text-zinc-600">
-              Armando el itinerario con los servicios de la base… puede tardar hasta un minuto.
-            </p>
-          ) : (
-            itinerario && <VistaItinerario itinerario={itinerario} />
-          )}
-        </section>
+      {(armando || versiones.length > 0 || errorItinerario) && (
+        <PanelItinerario
+          versiones={versiones}
+          seleccion={seleccion}
+          onSeleccionar={setSeleccion}
+          armando={armando}
+          error={errorItinerario}
+          onAjustar={ajustar}
+        />
       )}
     </div>
   );

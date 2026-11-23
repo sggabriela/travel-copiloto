@@ -4,15 +4,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import { crearClienteSupabase } from "@/lib/supabase/server";
 import { usuarioActual } from "@/lib/auth";
 import { armarFicha, ErrorFicha, FichaSchema, type Ficha } from "@/lib/ia/ficha";
-import { armarItinerario, ErrorItinerario, type Itinerario } from "@/lib/ia/itinerario";
-import { cargarCatalogo } from "@/lib/catalogo";
+import { ErrorItinerario } from "@/lib/ia/itinerario";
+import { crearVersion, ErrorVersion, listarVersiones, type VersionItinerario } from "@/lib/versiones";
 
 export type ResultadoFicha =
   | { ok: true; consultaId: string; ficha: Ficha; ms: number }
   | { ok: false; error: string };
 
 function mensajeDeError(error: unknown): string {
-  if (error instanceof ErrorFicha || error instanceof ErrorItinerario) return error.message;
+  if (error instanceof ErrorFicha || error instanceof ErrorItinerario || error instanceof ErrorVersion) return error.message;
   if (error instanceof Anthropic.AuthenticationError) {
     return "La clave de la IA no es válida. Avisale a quien administra la app.";
   }
@@ -61,9 +61,10 @@ export async function guardarFicha(
   return { ok: true };
 }
 
-export type ResultadoItinerario =
-  | { ok: true; itinerario: Itinerario; version: number; ms: number; modelo: string }
-  | { ok: false; error: string };
+const LARGO_MAXIMO_AJUSTE = 1000;
+
+export type { VersionItinerario };
+export type ResultadoItinerario = { ok: true; nueva: VersionItinerario } | { ok: false; error: string };
 
 /**
  * Guarda la ficha (por si el asesor la corrigió), arma el itinerario con IA solo con
@@ -74,60 +75,44 @@ export async function generarItinerario(consultaId: string, ficha: Ficha): Promi
   const valida = FichaSchema.safeParse(ficha);
   if (!valida.success) return { ok: false, error: "Hay datos de la ficha con un formato inválido." };
   const supabase = await crearClienteSupabase();
+  const { data: consulta, error } = await supabase
+    .from("consultas")
+    .update({ ficha: valida.data })
+    .eq("id", consultaId)
+    .select("conversacion")
+    .single();
+  if (error || !consulta) return { ok: false, error: "No se encontró la consulta. Generá la ficha de nuevo." };
   try {
-    const { data: consulta, error: errConsulta } = await supabase
-      .from("consultas")
-      .update({ ficha: valida.data })
-      .eq("id", consultaId)
-      .select("conversacion")
-      .single();
-    if (errConsulta || !consulta) return { ok: false, error: "No se encontró la consulta. Generá la ficha de nuevo." };
-
-    const catalogo = await cargarCatalogo(supabase);
-    const { itinerario, ms, modelo } = await armarItinerario({
-      conversacion: consulta.conversacion,
-      ficha: valida.data,
-      catalogo,
-    });
-
-    const { data: ultima } = await supabase
-      .from("itinerarios")
-      .select("version")
-      .eq("consulta_id", consultaId)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const version = (ultima?.version ?? 0) + 1;
-
-    const { error: errGuardar } = await supabase
-      .from("itinerarios")
-      .insert({ consulta_id: consultaId, version, contenido: itinerario, modelo, duracion_ms: ms });
-    if (errGuardar) {
-      console.error("No se pudo guardar el itinerario:", errGuardar.message);
-      return { ok: false, error: "El itinerario se armó pero no se pudo guardar. Probá de nuevo." };
-    }
-    await registrarPedidos(supabase, consultaId, valida.data, itinerario);
-    return { ok: true, itinerario, version, ms, modelo };
-  } catch (error) {
-    console.error("generarItinerario:", error);
-    return { ok: false, error: mensajeDeError(error) };
+    const nueva = await crearVersion(supabase, { consultaId, conversacion: consulta.conversacion, ficha: valida.data, ajuste: null });
+    return { ok: true, nueva };
+  } catch (e) {
+    console.error("generarItinerario:", e);
+    return { ok: false, error: mensajeDeError(e) };
   }
 }
 
-async function registrarPedidos(
-  supabase: Awaited<ReturnType<typeof crearClienteSupabase>>,
-  consultaId: string,
-  ficha: Ficha,
-  itinerario: Itinerario,
-) {
-  if (itinerario.no_cubierto.length === 0) return;
-  const { error } = await supabase.from("pedidos_sin_cubrir").insert(
-    itinerario.no_cubierto.map((p) => ({
-      consulta_id: consultaId,
-      pedido: p.pedido,
-      motivo: p.motivo,
-      destino: ficha.destino,
-    })),
-  );
-  if (error) console.error("No se pudieron registrar los pedidos sin cubrir:", error.message);
+/** Aplica un ajuste pedido por el asesor sobre la última versión y guarda una versión nueva. */
+export async function ajustarItinerario(consultaId: string, ajuste: string): Promise<ResultadoItinerario> {
+  await usuarioActual();
+  const texto = ajuste.trim();
+  if (!texto) return { ok: false, error: "Escribí qué querés cambiar del itinerario." };
+  if (texto.length > LARGO_MAXIMO_AJUSTE) return { ok: false, error: "El ajuste es muy largo. Resumilo en pocas líneas." };
+  const supabase = await crearClienteSupabase();
+  const { data: consulta, error } = await supabase.from("consultas").select("conversacion, ficha").eq("id", consultaId).single();
+  if (error || !consulta) return { ok: false, error: "No se encontró la consulta." };
+  const ficha = FichaSchema.safeParse(consulta.ficha);
+  if (!ficha.success) return { ok: false, error: "La ficha guardada tiene un formato inválido. Generala de nuevo." };
+  try {
+    const nueva = await crearVersion(supabase, { consultaId, conversacion: consulta.conversacion, ficha: ficha.data, ajuste: texto });
+    return { ok: true, nueva };
+  } catch (e) {
+    console.error("ajustarItinerario:", e);
+    return { ok: false, error: mensajeDeError(e) };
+  }
+}
+
+/** Versiones guardadas de una consulta (de la más nueva a la más vieja). */
+export async function versionesDeConsulta(consultaId: string): Promise<VersionItinerario[]> {
+  await usuarioActual();
+  return listarVersiones(await crearClienteSupabase(), consultaId);
 }
