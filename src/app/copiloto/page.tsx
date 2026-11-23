@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { usuarioActual } from "@/lib/auth";
 import { cerrarSesion } from "@/app/login/acciones";
+import { Copiloto } from "./copiloto";
 
 export const metadata: Metadata = { title: "Copiloto · Travel Experience" };
 
@@ -54,11 +55,14 @@ async function MenuUsuario() {
 async function Contenido() {
   await usuarioActual();
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-6">
-      <h1 className="text-xl font-semibold text-zinc-900">Nueva consulta</h1>
-      <p className="mt-1 text-zinc-600">
-        Acá vas a pegar la conversación de WhatsApp. Lo construimos en la etapa 5.
-      </p>
-    </section>
+    <>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-semibold text-zinc-900">Nueva consulta</h1>
+        <p className="text-sm text-zinc-600">
+          Pegá la conversación, revisá la ficha y después armamos el itinerario.
+        </p>
+      </div>
+      <Copiloto />
+    </>
   );
 }

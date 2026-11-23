@@ -8,15 +8,18 @@
     "start": "next start",
     "lint": "eslint",
     "probar:base": "node --env-file=.env scripts/probar-base.mjs",
-    "probar:login": "node --env-file=.env scripts/probar-login.mjs"
+    "probar:login": "node --env-file=.env scripts/probar-login.mjs",
+    "probar:ficha": "tsx --env-file=.env scripts/probar-ficha.mts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.2",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",
@@ -26,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "tailwindcss": "4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
