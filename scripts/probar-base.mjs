@@ -33,7 +33,7 @@ registrar("Sin sesión no se ve nada", !vistas.some((v) => v.includes("VISIBLE")
 
 // Con sesión
 const cliente = createClient(url, key, opciones);
-const { data: sesion, error: errLogin } = await cliente.auth.signInWithPassword({ email, password });
+const { error: errLogin } = await cliente.auth.signInWithPassword({ email, password });
 if (errLogin) {
   registrar("Login del usuario de prueba", false, errLogin.message);
   process.exit(1);

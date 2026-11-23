@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
+  // La raíz lleva al copiloto; si no hay sesión, el proxy manda al login.
+  async redirects() {
+    return [{ source: "/", destination: "/copiloto", permanent: false }];
+  },
   turbopack: {
     rules: {
       "*.css": {
