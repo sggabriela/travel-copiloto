@@ -98,3 +98,22 @@ select
   round(max(i.duracion_ms) / 1000.0, 1)          as segundos_maximo
 from itinerarios i
 group by i.modelo;
+
+
+-- 7 · Prueba con el asesor (etapa 9): cuánto tardó cada consulta, de punta a punta
+--     Desde que se generó la ficha hasta la última versión del itinerario.
+--     Reemplazá el email por el del asesor (o borrá esa línea para ver todos).
+select
+  c.created_at::timestamp(0)                                        as inicio,
+  c.ficha->>'destino'                                               as destino,
+  count(i.id)                                                       as versiones,
+  count(i.id) filter (where i.ajuste is not null)                   as ajustes,
+  round(extract(epoch from (max(i.created_at) - c.created_at)) / 60.0, 1) as minutos_hasta_ultima_version,
+  round(min(i.duracion_ms) filter (where i.version = 1) / 1000.0, 1)      as segundos_primer_itinerario,
+  string_agg(i.ajuste, ' | ' order by i.version)                    as ajustes_pedidos
+from consultas c
+join auth.users u on u.id = c.creado_por
+left join itinerarios i on i.consulta_id = c.id
+where u.email = 'email-del-asesor@ejemplo.com'
+group by c.id
+order by c.created_at desc;
