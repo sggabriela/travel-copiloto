@@ -239,6 +239,7 @@ function FichaEditable({
           <select id="region" className={campo} value={ficha.region} onChange={(e) => set("region", e.target.value as Ficha["region"])}>
             <option value="norte">Norte (Salta y Jujuy)</option>
             <option value="mendoza">Mendoza</option>
+            <option value="sierras">Sierras (Córdoba y San Luis)</option>
             <option value="otra">Otra</option>
             <option value="sin_definir">Sin definir</option>
           </select>

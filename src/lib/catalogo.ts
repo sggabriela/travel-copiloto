@@ -1,11 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Catálogo de servicios: lo único que la IA puede usar para armar itinerarios.
+// Para sumar una región: agregarla acá, en el check de supabase/01_esquema.sql y en la
+// descripción de la región en src/lib/ia/ficha.ts.
+export const REGIONES = ["norte", "mendoza", "sierras"] as const;
+export type Region = (typeof REGIONES)[number];
+export const esRegion = (r: string): r is Region => (REGIONES as readonly string[]).includes(r);
 export type Servicio = {
   id: number;
   nombre: string;
   tipo: "alojamiento" | "traslado" | "excursion" | "actividad";
-  region: "norte" | "mendoza";
+  region: Region;
   lugar: string;
   precio_usd: number;
   unidad: string;

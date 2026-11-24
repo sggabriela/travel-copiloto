@@ -2,7 +2,7 @@
 // Uso: npm run probar:itinerario   (llama a la API de Claude: cuesta algunos centavos)
 import { createClient } from "@supabase/supabase-js";
 import { armarFicha } from "../src/lib/ia/ficha";
-import { pedirItinerario, controlarItinerario, type ItinerarioIA } from "../src/lib/ia/itinerario";
+import { pedirConReintento, controlarItinerario, cubreMuyPocosDias, type ItinerarioIA } from "../src/lib/ia/itinerario";
 import { cargarCatalogo } from "../src/lib/catalogo";
 import { EJEMPLOS } from "../src/app/copiloto/ejemplos";
 
@@ -33,7 +33,7 @@ const ids = (ia: ItinerarioIA) => ia.dias.flatMap((d) => d.items.map((i) => i.se
 const resultados = [];
 for (const ej of EJEMPLOS) {
   const f = await armarFicha(ej.texto);
-  const r = await pedirItinerario({ conversacion: ej.texto, ficha: f.ficha, catalogo });
+  const r = await pedirConReintento({ conversacion: ej.texto, ficha: f.ficha, catalogo });
   const it = controlarItinerario(r.itinerario, catalogo, f.ficha);
   resultados.push({ ej, f, r, it });
   console.log(`\n— ${ej.nombre}: ${it.titulo} (${r.modelo}, ficha ${(f.ms / 1000).toFixed(1)} s + itinerario ${(r.ms / 1000).toFixed(1)} s)`);
@@ -43,7 +43,7 @@ for (const ej of EJEMPLOS) {
   console.log(`  Total USD ${it.total_usd} · por persona ${it.por_persona_usd} · no cubierto: ${JSON.stringify(it.no_cubierto)}`);
   console.log(`  Notas: ${it.notas_para_asesor.join(" | ")}\n`);
 }
-const [norte, mendoza] = resultados;
+const [norte, mendoza, sierras] = resultados;
 
 // 1 · Todos los servicios existen en la base
 const inexistentes = resultados.flatMap((x) => ids(x.r.itinerario).filter((id) => !porId.has(id)));
@@ -61,6 +61,25 @@ registrar(
 // 3 · Mendoza usa solo servicios de Mendoza
 const fueraDeMendoza = ids(mendoza.r.itinerario).filter((id) => porId.get(id)?.region !== "mendoza");
 registrar("Mendoza usa solo servicios de Mendoza", fueraDeMendoza.length === 0 && ids(mendoza.r.itinerario).length > 0, fueraDeMendoza.length ? `de otra región: ${fueraDeMendoza.join(", ")}` : `${ids(mendoza.r.itinerario).length} servicios, todos de Mendoza`);
+
+// 3b · Sierras: solo servicios de las sierras, con trekking y avistaje de aves (lo que pidieron)
+const idsSierras = ids(sierras.r.itinerario);
+const fueraDeSierras = idsSierras.filter((id) => porId.get(id)?.region !== "sierras");
+const TREKKING = [35, 36, 37, 38];
+const AVES = [39, 40, 41];
+registrar(
+  "Sierras usa solo servicios de las sierras y lo que pidieron",
+  fueraDeSierras.length === 0 && idsSierras.some((i) => TREKKING.includes(i)) && idsSierras.some((i) => AVES.includes(i)),
+  `${idsSierras.length} servicios · de otra región: ${fueraDeSierras.join(", ") || "ninguno"} · trekking: ${idsSierras.filter((i) => TREKKING.includes(i)).join(", ") || "no"} · aves: ${idsSierras.filter((i) => AVES.includes(i)).join(", ") || "no"}`,
+);
+
+// 3c · Detecta un itinerario a medias (la IA devolvió 1 día de 5): se usa para reintentar o avisar
+const aMedias: ItinerarioIA = { ...sierras.r.itinerario, dias: sierras.r.itinerario.dias.slice(0, 1) };
+registrar(
+  "Detecta un itinerario a medias",
+  sierras.f.ficha.duracion_dias === 5 && cubreMuyPocosDias(aMedias, sierras.f.ficha) && !cubreMuyPocosDias(sierras.r.itinerario, sierras.f.ficha),
+  `ficha pide ${sierras.f.ficha.duracion_dias} días · con 1 día: ${cubreMuyPocosDias(aMedias, sierras.f.ficha) ? "lo detecta" : "NO lo detecta"} · con ${sierras.r.itinerario.dias.length} días: ${cubreMuyPocosDias(sierras.r.itinerario, sierras.f.ficha) ? "falso aviso" : "ok"}`,
+);
 
 // 4 · El total coincide con la suma de los precios de la base
 const recalculos = resultados.map((x) => x.it.dias.flatMap((d) => d.items).reduce((s, i) => s + porId.get(i.servicio_id)!.precio_usd * i.cantidad, 0));

@@ -13,4 +13,10 @@ Asesor: ¡Hola! Buenísimo. ¿Qué tienen ganas de hacer?
 Cliente B: Bodegas sí o sí 🍷, algo de aventura (rafting?) y un día de relax. Queremos estar todas juntas, no en habitaciones separadas por todo el hotel.
 Cliente B: Presupuesto unos USD 900 por persona sin vuelos.`,
   },
+  {
+    nombre: "Aventura en las sierras",
+    texto: `Cliente D: Hola! Somos 3 amigos y queremos 5 días en las sierras de Córdoba y San Luis en octubre. Nos encanta el trekking y el avistaje de aves, y al final del día una cerveza artesanal.
+Asesor: ¡Qué buen plan! ¿Cómo es el ritmo? ¿Caminatas largas o más tranquilas?
+Cliente D: Nos bancamos caminatas largas, pero queremos ver cóndores si se puede. Presupuesto unos USD 700 por persona sin vuelos. Llegamos al aeropuerto de Córdoba.`,
+  },
 ] as const;

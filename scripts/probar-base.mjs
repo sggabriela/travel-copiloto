@@ -39,28 +39,34 @@ if (errLogin) {
   process.exit(1);
 }
 
-// P1 · Están los 27 servicios
+// P1 · Están los 45 servicios (15 del norte, 12 de Mendoza, 18 de las sierras)
 const { data: servicios, error: errServ } = await cliente.from("servicios").select("*").order("id");
 const norte = servicios?.filter((s) => s.region === "norte").length ?? 0;
 const mendoza = servicios?.filter((s) => s.region === "mendoza").length ?? 0;
+const sierras = servicios?.filter((s) => s.region === "sierras").length ?? 0;
 registrar(
-  "Están los 27 servicios",
-  !errServ && servicios.length === 27 && norte === 15 && mendoza === 12,
-  errServ ? errServ.message : `total ${servicios.length}, norte ${norte}, mendoza ${mendoza}`,
+  "Están los 45 servicios",
+  !errServ && servicios.length === 45 && norte === 15 && mendoza === 12 && sierras === 18,
+  errServ ? errServ.message : `total ${servicios.length}, norte ${norte}, mendoza ${mendoza}, sierras ${sierras}`,
 );
 
 // P4 · Precios y horarios correctos (muestra)
 const s8 = servicios?.find((s) => s.id === 8);
 const s9 = servicios?.find((s) => s.id === 9);
 const s22 = servicios?.find((s) => s.id === 22);
+const s36 = servicios?.find((s) => s.id === 36);
+const s41 = servicios?.find((s) => s.id === 41);
 const muestraOk =
   s8?.hora_salida?.startsWith("07:00") && Number(s8?.precio_usd) === 60 &&
   s9?.hora_salida?.startsWith("09:30") && Number(s9?.precio_usd) === 75 &&
-  Number(s22?.precio_usd) === 130 && servicios.every((s) => Number(s.precio_usd) > 0);
+  Number(s22?.precio_usd) === 130 &&
+  s36?.hora_salida?.startsWith("08:30") && Number(s36?.precio_usd) === 55 &&
+  s41?.hora_salida?.startsWith("17:00") && Number(s41?.precio_usd) === 35 &&
+  servicios.every((s) => Number(s.precio_usd) > 0);
 registrar(
   "Precios y horarios correctos",
   Boolean(muestraOk),
-  `#8 ${s8?.hora_salida} USD ${s8?.precio_usd} · #9 ${s9?.hora_salida} USD ${s9?.precio_usd} · #22 USD ${s22?.precio_usd}`,
+  `#8 ${s8?.hora_salida} USD ${s8?.precio_usd} · #9 ${s9?.hora_salida} USD ${s9?.precio_usd} · #22 USD ${s22?.precio_usd} · #36 ${s36?.hora_salida} USD ${s36?.precio_usd} · #41 ${s41?.hora_salida} USD ${s41?.precio_usd}`,
 );
 
 // P3 · Con sesión se lee y se escribe (y se limpia al final)

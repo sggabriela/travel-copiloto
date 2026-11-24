@@ -7,7 +7,7 @@ create table if not exists public.servicios (
   id           integer primary key,
   nombre       text    not null,
   tipo         text    not null check (tipo in ('alojamiento', 'traslado', 'excursion', 'actividad')),
-  region       text    not null check (region in ('norte', 'mendoza')),
+  region       text    not null check (region in ('norte', 'mendoza', 'sierras')),
   lugar        text    not null,
   precio_usd   numeric(10,2) not null check (precio_usd >= 0),
   unidad       text    not null,

@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import type { Ficha } from "./ficha";
-import { catalogoComoTexto, type Servicio } from "../catalogo";
+import { catalogoComoTexto, esRegion, type Servicio } from "../catalogo";
 
 // Itinerario sugerido: el razonamiento más difícil del copiloto.
 // Usa Claude Opus 5.5. Si Opus declina, el respaldo del servidor de Anthropic
@@ -105,7 +105,7 @@ export type EntradaItinerario = {
 
 /** Catálogo que ve la IA: el de la región del viaje, o todo si la región no está definida. */
 export function catalogoParaFicha(catalogo: Servicio[], ficha: Ficha): Servicio[] {
-  if (ficha.region === "norte" || ficha.region === "mendoza") {
+  if (esRegion(ficha.region)) {
     return catalogo.filter((s) => s.region === ficha.region);
   }
   return catalogo;
@@ -172,7 +172,7 @@ const redondear = (n: number) => Math.round(n * 100) / 100;
  */
 export function controlarItinerario(ia: ItinerarioIA, catalogo: Servicio[], ficha: Ficha): Itinerario {
   const porId = new Map(catalogo.map((s) => [s.id, s]));
-  const regionViaje = ficha.region === "norte" || ficha.region === "mendoza" ? ficha.region : null;
+  const regionViaje = esRegion(ficha.region) ? ficha.region : null;
   const descartados: Itinerario["descartados"] = [];
 
   // Topes de sentido común: nunca más unidades que viajeros, ni más de 30 días.
@@ -222,11 +222,38 @@ export function controlarItinerario(ia: ItinerarioIA, catalogo: Servicio[], fich
   };
 }
 
-/** Pide el itinerario y lo controla. */
+/** ¿La IA devolvió claramente menos días de los que pide la ficha? (solo en la primera propuesta) */
+export function cubreMuyPocosDias(ia: ItinerarioIA, ficha: Ficha): boolean {
+  const pedidos = ficha.duracion_dias;
+  return !!pedidos && pedidos > 1 && ia.dias.length * 2 <= pedidos;
+}
+
+/** Pide el itinerario a la IA. Si la primera propuesta quedó a medias, reintenta una vez. */
+export async function pedirConReintento(
+  entrada: EntradaItinerario,
+  cliente?: Anthropic,
+): Promise<{ itinerario: ItinerarioIA; ms: number; modelo: string; aviso: string | null }> {
+  let r = await pedirItinerario(entrada, cliente);
+  let ms = r.ms;
+  let aviso: string | null = null;
+  if (!entrada.ajuste && cubreMuyPocosDias(r.itinerario, entrada.ficha)) {
+    const primero = r.itinerario.dias.length;
+    r = await pedirItinerario(entrada, cliente);
+    ms += r.ms;
+    if (cubreMuyPocosDias(r.itinerario, entrada.ficha)) {
+      aviso = `Ojo: la propuesta cubre ${r.itinerario.dias.length} de ${entrada.ficha.duracion_dias} días (el primer intento tenía ${primero}). Tocá "Rearmar itinerario" o pedí un ajuste.`;
+    }
+  }
+  return { itinerario: r.itinerario, ms, modelo: r.modelo, aviso };
+}
+
+/** Pide el itinerario (con reintento) y lo controla. */
 export async function armarItinerario(
   entrada: EntradaItinerario,
   cliente?: Anthropic,
 ): Promise<{ itinerario: Itinerario; ms: number; modelo: string }> {
-  const { itinerario, ms, modelo } = await pedirItinerario(entrada, cliente);
-  return { itinerario: controlarItinerario(itinerario, entrada.catalogo, entrada.ficha), ms, modelo };
+  const { itinerario: ia, ms, modelo, aviso } = await pedirConReintento(entrada, cliente);
+  const itinerario = controlarItinerario(ia, entrada.catalogo, entrada.ficha);
+  if (aviso) itinerario.notas_para_asesor = [aviso, ...itinerario.notas_para_asesor];
+  return { itinerario, ms, modelo };
 }

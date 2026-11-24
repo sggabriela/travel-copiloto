@@ -7,6 +7,7 @@ const LIMITE_MS = 15000;
 const casos = [
   { nombre: "Caso pareja al norte", texto: EJEMPLOS[0].texto },
   { nombre: "Caso grupo de amigas a Mendoza", texto: EJEMPLOS[1].texto },
+  { nombre: "Caso aventura en las sierras", texto: EJEMPLOS[2].texto },
   { nombre: "Consulta incompleta", texto: "Cliente C: Hola, quiero viajar en invierno, ¿qué tienen?" },
 ];
 
@@ -28,6 +29,14 @@ const chequeos: Record<string, (f: Ficha) => string[]> = {
     f.duracion_dias === 4 ? "" : `días=${f.duracion_dias}`,
     f.presupuesto?.includes("900") ? "" : `presupuesto=${f.presupuesto}`,
     tiene(f.intereses, "bodega", "vino") ? "" : "falta interés bodegas",
+  ],
+  "Caso aventura en las sierras": (f) => [
+    f.personas === 3 ? "" : `personas=${f.personas}`,
+    f.region === "sierras" ? "" : `region=${f.region}`,
+    f.duracion_dias === 5 ? "" : `días=${f.duracion_dias}`,
+    tiene(f.intereses, "trekking", "caminata", "senderismo") ? "" : "falta interés trekking",
+    tiene(f.intereses, "ave", "cóndor", "condor", "pájaro") ? "" : "falta interés avistaje de aves",
+    f.presupuesto?.includes("700") ? "" : `presupuesto=${f.presupuesto}`,
   ],
   "Consulta incompleta": (f) => [
     f.personas === null ? "" : `inventó personas: ${f.personas}`,
@@ -69,5 +78,6 @@ registrar(
   `tiempos: ${tiempos.map((t) => (t / 1000).toFixed(1) + " s").join(", ")}`,
 );
 
-console.log(`\n${5 - fallas}/5 pruebas pasaron`);
+const totalPruebas = casos.length + 2;
+console.log(`\n${totalPruebas - fallas}/${totalPruebas} pruebas pasaron`);
 process.exit(fallas ? 1 : 0);

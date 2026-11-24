@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { REGIONES } from "../catalogo";
 
 // Ficha del viajero: extracción de datos de la conversación.
 // Usa Claude Haiku 5.5: rápido y económico para leer y ordenar un texto.
@@ -25,9 +26,9 @@ export const FichaSchema = z.object({
     .nullable()
     .describe("Destino o zona que pide, con sus palabras. null si no lo dijo."),
   region: z
-    .enum(["norte", "mendoza", "otra", "sin_definir"])
+    .enum([...REGIONES, "otra", "sin_definir"])
     .describe(
-      'Región del catálogo: "norte" (Salta, Jujuy, Cafayate, Purmamarca, Quebrada, Salinas), "mendoza" (Mendoza, Valle de Uco, Luján, Maipú, Chacras, Potrerillos, Cacheuta), "otra" si pide un lugar fuera de esas, "sin_definir" si no dijo.',
+      'Región del catálogo: "norte" (Salta, Jujuy, Cafayate, Purmamarca, Quebrada, Salinas), "mendoza" (Mendoza, Valle de Uco, Luján, Maipú, Chacras, Potrerillos, Cacheuta), "sierras" (provincias de Córdoba y San Luis: Villa General Belgrano, La Cumbrecita, Capilla del Monte, Mina Clavero, Champaquí, Merlo, Mar Chiquita, Traslasierra), "otra" si pide un lugar fuera de esas, "sin_definir" si no dijo.',
     ),
   fechas: z
     .string()
