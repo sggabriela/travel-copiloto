@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Ficha } from "./ia/ficha";
+import { LARGO_MAXIMO_CONVERSACION } from "./ia/ficha";
 import { armarItinerario, type Itinerario } from "./ia/itinerario";
 import { cargarCatalogo } from "./catalogo";
 import { compararVersiones, type ResumenCambios } from "./cambios";
@@ -18,12 +19,19 @@ export type VersionItinerario = {
 
 export class ErrorVersion extends Error {}
 
+const LARGO_MAXIMO_AJUSTE = 1000;
+const TAMANO_MAXIMO_ITINERARIO = 60000;
+
 /** Arma una versión nueva (primera propuesta, rearmado o ajuste), la guarda y registra lo no cubierto. */
 export async function crearVersion(
   supabase: SupabaseClient,
   entrada: { consultaId: string; conversacion: string; ficha: Ficha; ajuste: string | null },
 ): Promise<VersionItinerario> {
   const { consultaId, conversacion, ficha, ajuste } = entrada;
+  // Se vuelve a controlar acá porque estos datos pueden venir de la base, no solo de la pantalla.
+  if (conversacion.length > LARGO_MAXIMO_CONVERSACION || (ajuste?.length ?? 0) > LARGO_MAXIMO_AJUSTE) {
+    throw new ErrorVersion("La consulta o el ajuste son demasiado largos.");
+  }
   const { data: ultima } = await supabase
     .from("itinerarios")
     .select("version, contenido")
@@ -33,6 +41,9 @@ export async function crearVersion(
     .maybeSingle();
   const anterior = (ultima?.contenido as Itinerario | undefined) ?? undefined;
   if (ajuste && !anterior) throw new ErrorVersion("Primero armá el itinerario.");
+  if (anterior && JSON.stringify(anterior).length > TAMANO_MAXIMO_ITINERARIO) {
+    throw new ErrorVersion("El itinerario guardado es demasiado grande. Armalo de nuevo desde la ficha.");
+  }
 
   const catalogo = await cargarCatalogo(supabase);
   const { itinerario, ms, modelo } = await armarItinerario({

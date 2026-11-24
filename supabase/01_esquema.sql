@@ -90,7 +90,17 @@ drop policy if exists "pedidos: propios" on public.pedidos_sin_cubrir;
 create policy "pedidos: propios" on public.pedidos_sin_cubrir
   for all to authenticated
   using (creado_por = (select auth.uid()))
-  with check (creado_por = (select auth.uid()));
+  with check (
+    creado_por = (select auth.uid())
+    and (
+      consulta_id is null
+      or exists (
+        select 1 from public.consultas c
+        where c.id = consulta_id and c.creado_por = (select auth.uid())
+      )
+    )
+  );
+-- (Los topes de largo están en 04_endurecer.sql.)
 
 -- Sin acceso para visitantes sin sesión
 revoke all on public.servicios, public.consultas, public.itinerarios, public.pedidos_sin_cubrir from anon;

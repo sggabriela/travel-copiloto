@@ -175,7 +175,10 @@ export function controlarItinerario(ia: ItinerarioIA, catalogo: Servicio[], fich
   const regionViaje = ficha.region === "norte" || ficha.region === "mendoza" ? ficha.region : null;
   const descartados: Itinerario["descartados"] = [];
 
+  // Topes de sentido común: nunca más unidades que viajeros, ni más de 30 días.
+  const tope = Math.max(1, Math.min(ficha.personas ?? 20, 50));
   const dias = [...ia.dias]
+    .slice(0, 30)
     .sort((a, b) => a.numero - b.numero)
     .map((d) => {
       const items: ItemItinerario[] = [];
@@ -189,7 +192,7 @@ export function controlarItinerario(ia: ItinerarioIA, catalogo: Servicio[], fich
           descartados.push({ servicio_id: item.servicio_id, motivo: `es de ${s.region}, no de ${regionViaje}` });
           continue;
         }
-        const cantidad = Math.max(1, item.cantidad);
+        const cantidad = Math.min(tope, Math.max(1, item.cantidad));
         items.push({
           servicio_id: s.id,
           nombre: s.nombre,
