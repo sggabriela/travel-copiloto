@@ -175,6 +175,7 @@ export function Copiloto() {
 
       {(armando || versiones.length > 0 || errorItinerario) && (
         <PanelItinerario
+          consultaId={consultaId}
           versiones={versiones}
           seleccion={seleccion}
           onSeleccionar={setSeleccion}

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { ResumenCambios } from "@/lib/cambios";
-import type { VersionItinerario } from "./acciones";
+import { crearLink, revocarLink, type VersionItinerario } from "./acciones";
 import { VistaItinerario } from "./itinerario";
 
 const usd = (n: number) => `USD ${Math.abs(n).toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
 const signo = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "±");
 
 export function PanelItinerario({
+  consultaId,
   versiones,
   seleccion,
   onSeleccionar,
@@ -16,6 +17,7 @@ export function PanelItinerario({
   error,
   onAjustar,
 }: {
+  consultaId: string | null;
   versiones: VersionItinerario[]; // de la más nueva a la más vieja
   seleccion: number | null;
   onSeleccionar: (version: number) => void;
@@ -79,6 +81,7 @@ export function PanelItinerario({
           )}
           {vista.cambios && <CajaCambios cambios={vista.cambios} version={vista.version} />}
           <VistaItinerario itinerario={vista.itinerario} />
+          {consultaId && <LinkCliente key={`${consultaId}-${vista.version}`} consultaId={consultaId} version={vista.version} />}
           {vista.ms !== null && (
             <p className="text-xs text-zinc-500">Versión {vista.version} armada por IA en {(vista.ms / 1000).toFixed(1)} s.</p>
           )}
@@ -113,6 +116,99 @@ export function PanelItinerario({
         </form>
       )}
     </section>
+  );
+}
+
+function LinkCliente({ consultaId, version }: { consultaId: string; version: number }) {
+  const [codigo, setCodigo] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const direccion = codigo ? `${window.location.origin}/v/${codigo}` : "";
+
+  async function crear() {
+    setOcupado(true);
+    setAviso(null);
+    const r = await crearLink(consultaId, version);
+    setOcupado(false);
+    if (r.ok) setCodigo(r.codigo);
+    else setAviso(r.error);
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(direccion);
+      setAviso("Link copiado.");
+    } catch {
+      setAviso("No se pudo copiar solo: seleccioná el link y copialo.");
+    }
+  }
+
+  async function revocar() {
+    if (!codigo) return;
+    setOcupado(true);
+    const r = await revocarLink(codigo);
+    setOcupado(false);
+    if (r.ok) {
+      setCodigo(null);
+      setAviso("Link revocado: ya no se puede abrir.");
+    } else setAviso("No se pudo revocar. Probá de nuevo.");
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+      <p className="text-sm font-semibold text-zinc-900">Mandar al cliente</p>
+      {!codigo ? (
+        <>
+          <p className="text-xs text-zinc-600">
+            Crea un link con esta versión {version}, sin login. Muestra los precios, no tus notas, y el presupuesto figura válido por 48 horas.
+          </p>
+          <button
+            type="button"
+            onClick={crear}
+            disabled={ocupado}
+            className="min-h-10 self-start rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+          >
+            {ocupado ? "Creando…" : "Crear link para el cliente"}
+          </button>
+        </>
+      ) : (
+        <>
+          <input
+            readOnly
+            value={direccion}
+            aria-label="Link para el cliente"
+            onFocus={(e) => e.currentTarget.select()}
+            className="min-h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 font-mono text-xs text-zinc-900"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={copiar} className="min-h-10 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">
+              Copiar link
+            </button>
+            <a
+              href={direccion}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
+            >
+              Abrir como cliente
+            </a>
+            <button
+              type="button"
+              onClick={revocar}
+              disabled={ocupado}
+              className="min-h-10 rounded-lg border border-red-300 bg-white px-4 text-sm font-medium text-red-800 hover:bg-red-50 disabled:opacity-50"
+            >
+              Revocar
+            </button>
+          </div>
+        </>
+      )}
+      {aviso && (
+        <p role="status" className="text-xs text-zinc-700">
+          {aviso}
+        </p>
+      )}
+    </div>
   );
 }
 

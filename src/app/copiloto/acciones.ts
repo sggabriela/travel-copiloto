@@ -5,6 +5,7 @@ import { crearClienteSupabase } from "@/lib/supabase/server";
 import { usuarioActual } from "@/lib/auth";
 import { armarFicha, ErrorFicha, FichaSchema, type Ficha } from "@/lib/ia/ficha";
 import { ErrorItinerario } from "@/lib/ia/itinerario";
+import { FORMATO_CODIGO } from "@/lib/compartir";
 import { crearVersion, ErrorVersion, listarVersiones, type VersionItinerario } from "@/lib/versiones";
 
 // Tope de tamaño para la ficha que manda el navegador (una ficha real ocupa ~1.000 caracteres).
@@ -130,4 +131,45 @@ export async function versionesDeConsulta(consultaId: string): Promise<VersionIt
     console.error("versionesDeConsulta:", e);
     return [];
   }
+}
+
+/**
+ * Crea el link para el cliente de una versión (o devuelve el que ya existe y sigue vigente).
+ * Devuelve solo el código: la pantalla arma la dirección completa.
+ */
+export async function crearLink(consultaId: string, version: number): Promise<{ ok: true; codigo: string } | { ok: false; error: string }> {
+  await usuarioActual();
+  if (typeof consultaId !== "string" || !Number.isInteger(version)) return { ok: false, error: "Pedido inválido." };
+  const supabase = await crearClienteSupabase();
+  const { data: fila } = await supabase.from("itinerarios").select("id").eq("consulta_id", consultaId).eq("version", version).maybeSingle();
+  if (!fila) return { ok: false, error: "No se encontró esa versión." };
+  const { data: existente } = await supabase
+    .from("compartidos")
+    .select("codigo")
+    .eq("itinerario_id", fila.id)
+    .is("revocado_at", null)
+    .gt("vence_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existente) return { ok: true, codigo: existente.codigo };
+  const { data, error } = await supabase.from("compartidos").insert({ itinerario_id: fila.id }).select("codigo").single();
+  if (error || !data) {
+    console.error("crearLink:", error?.message);
+    return { ok: false, error: "No se pudo crear el link. Probá de nuevo." };
+  }
+  return { ok: true, codigo: data.codigo };
+}
+
+/** Revoca un link: deja de abrirse de inmediato. */
+export async function revocarLink(codigo: string): Promise<{ ok: boolean }> {
+  await usuarioActual();
+  if (typeof codigo !== "string" || !FORMATO_CODIGO.test(codigo)) return { ok: false };
+  const supabase = await crearClienteSupabase();
+  const { data, error } = await supabase
+    .from("compartidos")
+    .update({ revocado_at: new Date().toISOString() })
+    .eq("codigo", codigo)
+    .select("id");
+  return { ok: !error && (data?.length ?? 0) > 0 };
 }
